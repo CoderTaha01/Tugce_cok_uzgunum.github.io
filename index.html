@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#063d30">
+<meta name="robots" content="noindex">
+<title>Bu Taha</title>
+<link rel="icon" href="data:,">
+<!-- font is loaded without blocking the page, so a filtered network cannot delay it -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&display=swap" media="print" onload="this.media='all'">
+<style>
+  :root {
+    --bg: #f0f7f1;
+    --bg-2: #d5e7d8;
+    --pink: #b8d4bd;
+    --lilac: #91b79a;
+    --mint: #cce3d1;
+    --ink: #294333;
+    --ink-soft: #5c7564;
+    --card: #fff;
+    --radius: 28px;
+    --shadow: 0 10px 30px rgba(120, 90, 160, .18);
+    --face: clamp(150px, 44vmin, 250px);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Nunito, ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  img { -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
+
+  /* ---------- scroll container with snap screens ---------- */
+  .scroller {
+    position: relative;
+    height: 100%;
+    height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-snap-type: y mandatory;
+    overscroll-behavior: contain;
+  }
+  /* while the intro plays: no user scrolling, no snapping (the script moves the page itself) */
+  .scroller.is-locked { overflow-y: hidden; scroll-snap-type: none; }
+  .screen {
+    position: relative;
+    height: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    isolation: isolate;
+    padding: calc(20px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right))
+             calc(20px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
+    background:
+      linear-gradient(rgba(3, 38, 29, .32), rgba(2, 28, 21, .42)),
+      var(--bg) url("backgorund3.png") center / cover no-repeat;
+    color: #fff4d6;
+    text-align: center;
+  }
+  .screen--center { display: grid; place-items: center; }
+  .screen--stage { padding: 0; }
+  .stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: clip;
+    padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  /* soft pastel blobs, no filters (cheap on phones) */
+  .blob {
+    position: absolute; border-radius: 50%; pointer-events: none; z-index: -1;
+    background: radial-gradient(circle at 50% 50%, var(--c), transparent 70%);
+    opacity: .22;
+  }
+  .blob-a { --c: var(--pink);  width: 70vmin; height: 70vmin; left: -25vmin; top: -20vmin; }
+  .blob-b { --c: var(--lilac); width: 60vmin; height: 60vmin; right: -22vmin; top: 30%; }
+  .blob-c { --c: var(--mint);  width: 55vmin; height: 55vmin; left: -15vmin; bottom: -20vmin; }
+
+  /* ---------- the face (three copies share one look) ---------- */
+  .face {
+    border-radius: 50%; border: 6px solid var(--lilac); box-shadow: var(--shadow);
+    background: #fff url("kucuk.jpg") 50% 10% / 100% auto no-repeat;
+  }
+  /* screen 1: the face at rest. Hidden until the intro is over, because the flying copy sits exactly on top of it. */
+  .face--home {
+    position: absolute; left: 50%; top: 40%; z-index: 3;
+    width: var(--face); height: var(--face);
+    margin-left: calc(var(--face) / -2); margin-top: calc(var(--face) / -2);
+    visibility: hidden;
+  }
+  /* the copy that flies: fixed to the viewport, moved only with transform */
+  .face--fly {
+    position: fixed; left: 0; top: 0; z-index: 20; pointer-events: none;
+    width: var(--face); height: var(--face);
+    transform-origin: 50% 50%; will-change: transform;
+  }
+  /* Fade from the childhood photo to the older photo before it flies onto the donkey. */
+  .face--fly::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: #fff url("esek_taha.jpg") 37% 22% / 170% auto no-repeat;
+    opacity: var(--older-opacity, 0); will-change: opacity;
+  }
+  /* screen 2: the face stuck on the donkey, in percentages of the photo, so it survives any screen size */
+  .face--landed {
+    position: absolute; left: 52%; top: 35%; width: 40%; aspect-ratio: 1; z-index: 1;
+    margin-left: -23%; margin-top: -23%;   /* centred on that point without a transform, so layout = what you see */
+    background: #fff url("esek_taha.jpg") 37% 22% / 170% auto no-repeat;
+    opacity: 0;
+  }
+  .is-done .face--home { visibility: visible; }
+  .is-done .face--fly { display: none; }
+  .is-done .face--landed { opacity: 1; }
+
+  /* ---------- screen 1 + 2 ---------- */
+  .title {
+    position: absolute; left: 0; right: 0; top: 9%; margin: 0; z-index: 4;
+    font-size: clamp(2.4rem, 1.8rem + 4vw, 4.2rem); font-weight: 900; letter-spacing: -.01em;
+  }
+  .hint, .next-hint {
+    position: absolute; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 4;
+    font-weight: 800; color: #eadfbd; animation: bob 1.4s ease-in-out infinite;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .next-hint--late { opacity: 0; transition: opacity .4s ease; }
+  .is-done .next-hint--late { opacity: 1; }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+  @media (prefers-reduced-motion: reduce) { .hint, .next-hint { animation: none; } }
+
+  .card-wrap {
+    position: absolute; left: 0; right: 0; bottom: 6%; z-index: 2;
+    display: flex; justify-content: center;
+  }
+  .donkey-image {
+    width: min(74vw, 44vh, 360px); width: min(74vw, 44dvh, 360px);
+  }
+  .photo {
+    /* Change these values to adjust the frame */
+    --frame-thickness: 3px;
+    --frame-top: 0px;
+    --frame-right: 22px;
+    --frame-bottom: 0px;
+    --frame-left: 22px;
+    --frame-radius: 26px;
+    position: relative; overflow: hidden; border-radius: var(--frame-radius);
+    box-shadow: 0 10px 23px rgba(20, 86, 61, .38);
+  }
+  .photo::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    pointer-events: none;
+    top: var(--frame-top);
+    right: var(--frame-right);
+    bottom: var(--frame-bottom);
+    left: var(--frame-left);
+    border: var(--frame-thickness) solid var(--lilac);
+    border-radius: inherit;
+  }
+  .photo img {
+    display: block; width: 100%; aspect-ratio: 250 / 465; object-fit: contain;
+    clip-path: inset(
+      calc(var(--frame-top) + var(--frame-thickness))
+      calc(var(--frame-right) + var(--frame-thickness))
+      calc(var(--frame-bottom) + var(--frame-thickness))
+      calc(var(--frame-left) + var(--frame-thickness))
+      round calc(var(--frame-radius) - var(--frame-thickness))
+    );
+    pointer-events: none;
+  }
+  .caption {
+    position: absolute; left: 20px; right: 20px; top: 7%; margin: 0; z-index: 4;
+    font-size: clamp(1.6rem, 1.2rem + 2.6vw, 2.6rem); font-weight: 900; line-height: 1.15;
+    opacity: 0;
+  }
+  .caption__sound { display: block; margin-top: .15em; font-size: 1.35em; }
+  .is-done .caption { opacity: 1; }
+
+  /* ---------- screen 3 + 4 ---------- */
+  .card-text {
+    max-width: 34rem; max-height: 100%; overflow-y: auto;
+    padding: clamp(20px, 5vw, 36px); border-radius: var(--radius);
+    color: inherit; background: transparent; box-shadow: none;
+    text-shadow: 0 2px 8px rgba(0, 25, 18, .55);
+  }
+  .card-text p { margin: 0; font-size: clamp(1.25rem, .9rem + 2.2vw, 1.8rem); font-weight: 800; line-height: 1.35; }
+  .card-text p + p { margin-top: .9em; }
+
+  .ask {
+    width: min(100%, 28rem); display: flex; flex-direction: column; align-items: center;
+    gap: clamp(.65rem, 2vh, 1rem);
+  }
+  .ask .big { margin: 0; font-size: clamp(1.5rem, 1rem + 2.8vw, 2.3rem); font-weight: 900; line-height: 1.2; }
+  .shy-emoji { display: block; margin-top: .35em; line-height: 1; }
+  .shy-hands { display: block; margin-top: .15em; }
+  .ask__image {
+    display: block; width: min(180px, 45vw); height: auto; margin: 0 auto;
+    border: 3px solid var(--lilac); border-radius: 14px; box-shadow: var(--shadow);
+  }
+  .actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: .35rem; min-height: 64px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .4em;
+    min-width: 8.5rem; padding: .85em 1.5em; border: 0; border-radius: 999px;
+    font: inherit; font-weight: 900; font-size: 1.15rem; color: var(--ink);
+    text-decoration: none; cursor: pointer; box-shadow: var(--shadow);
+    -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  }
+  .btn--yes { background: linear-gradient(135deg, var(--mint), var(--pink)); }
+  .btn--yes:active { transform: scale(.97); }
+  .btn--no { background: var(--lilac); touch-action: none; }
+  .btn--no.is-loose { position: absolute; margin: 0; z-index: 5; }
+  .cry-mark {
+    position: absolute; z-index: 3; pointer-events: none; user-select: none;
+    font-size: 2rem; line-height: 1; transform: translate(-50%, -50%);
+    animation: cry-pop .2s ease-out;
+  }
+  @keyframes cry-pop {
+    from { transform: translate(-50%, -50%) scale(.4); }
+    to { transform: translate(-50%, -50%) scale(1); }
+  }
+  .btn--ghost { background: transparent; box-shadow: none; color: var(--ink-soft); min-width: 0; }
+
+  /* ---------- call popup ---------- */
+  .popup {
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+    padding: 16px; background: rgba(59, 47, 74, .45);
+    opacity: 0; transition: opacity .2s ease;
+  }
+  .popup[hidden] { display: none; }
+  .popup.is-open { opacity: 1; }
+  .popup__card {
+    position: relative; width: min(100%, 26rem); max-height: 100%; overflow-y: auto;
+    padding: 28px 22px 22px; border-radius: var(--radius); background: var(--card);
+    box-shadow: 0 20px 50px rgba(59, 47, 74, .35); text-align: center;
+    transform: translateY(12px); transition: transform .2s ease;
+  }
+  .popup.is-open .popup__card { transform: none; }
+  .popup__close {
+    position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border: 0;
+    border-radius: 50%; background: var(--bg-2); color: var(--ink); font: inherit; font-size: 1.1rem;
+    font-weight: 900; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .popup h2 { margin: 0 0 .4em; font-size: 1.6rem; font-weight: 900; }
+  .number {
+    margin: 0 0 .8em; font-size: clamp(1.5rem, 1rem + 3vw, 2rem); font-weight: 900; letter-spacing: .02em;
+  }
+  .qr { margin: 0 auto 1em; }
+  .qr .tile {
+    width: 220px; height: 220px; margin: 0 auto 10px; padding: 12px; border-radius: 16px;
+    background: #fff; box-shadow: inset 0 0 0 2px var(--bg-2);
+  }
+  .qr svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+  .qr p { margin: 0; color: var(--ink-soft); font-weight: 800; font-size: .95rem; }
+  .popup__actions { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+  .popup__actions .btn { width: 100%; }
+  .popup .btn--ghost { margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<main class="scroller is-locked" id="scroller">
+
+  <section class="screen screen--stage" id="intro">
+    <div class="stage">
+      <div class="blob blob-a"></div>
+      <div class="blob blob-b"></div>
+      <div class="blob blob-c"></div>
+      <h1 class="title">Bu Taha.</h1>
+      <div class="face face--home" id="faceHome" role="img" aria-label="Taha"></div>
+      <div class="hint" id="hint">Aşağı kaydır ↓</div>
+    </div>
+  </section>
+
+  <section class="screen screen--stage" id="donkey">
+    <div class="stage">
+      <div class="blob blob-a"></div>
+      <div class="blob blob-b"></div>
+      <div class="blob blob-c"></div>
+      <p class="caption" id="caption">Kendisi bir enaaaaaiiii<span class="caption__sound">ai ai ai</span></p>
+      <div class="card-wrap">
+        <div class="donkey-image" id="donkeyVisual">
+          <div class="photo">
+            <img id="donkeyImg" src="donkeysucketh.png" alt="Eşek" width="250" height="465" draggable="false">
+            <div class="face face--landed" id="faceLanded"></div>
+          </div>
+        </div>
+      </div>
+      <div class="next-hint next-hint--late">↓</div>
+    </div>
+  </section>
+
+  <section class="screen screen--center" id="sorry">
+    <div class="blob blob-b"></div>
+    <div class="card-text">
+      <p>Sana karşı çok büyük bir hata yaptığının farkında. <p>
+      <p>Seninle bir daha konuşmak için Amerika'ya gitmeyi beklemek istemiyor</p>
+    </div>
+    <div class="next-hint">↓</div>
+  </section>
+
+  <section class="screen screen--center" id="call">
+    <div class="blob blob-a"></div>
+    <div class="blob blob-c"></div>
+    <div class="ask">
+      <p class="big">Senden özür dileyebilmesi için onu arayabilir misin?<span class="shy-emoji">🥺<span class="shy-hands">👉👈</span></span></p>
+      <img class="ask__image" src="cute_magnet.jpg" alt="Sevimli magnet" width="1362" height="1155">
+      <div class="actions">
+        <a id="yes" class="btn btn--yes" href="tel:+905304654521">Evet 📞</a>
+        <button id="no" class="btn btn--no" type="button" tabindex="-1" aria-hidden="true">Hayır</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="face face--fly" id="flyFace" aria-hidden="true"></div>
+
+<div class="popup" id="callPopup" hidden>
+  <div class="popup__card" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
+    <button class="popup__close" id="popupClose" type="button" aria-label="Kapat">✕</button>
+    <h2 id="popupTitle">Taha'yı ara 📞</h2>
+    <p class="number">+90 530 465 45 21</p>
+    <div class="qr" id="qrBox" hidden>
+      <div class="tile">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29" aria-label="QR: tel:+905304654521"><path stroke="#2b2141" d="M2 2.5h7m1 0h4m2 0h1m1 0h1m1 0h7m-25 1h1m5 0h1m3 0h1m1 0h1m2 0h1m2 0h1m5 0h1m-25 1h1m1 0h3m1 0h1m1 0h4m4 0h1m1 0h1m1 0h3m1 0h1m-25 1h1m1 0h3m1 0h1m1 0h6m1 0h2m1 0h1m1 0h3m1 0h1m-25 1h1m1 0h3m1 0h1m2 0h1m1 0h1m2 0h2m2 0h1m1 0h3m1 0h1m-25 1h1m5 0h1m1 0h3m4 0h1m2 0h1m5 0h1m-25 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-17 1h1m1 0h1m1 0h2m2 0h1m-16 1h1m1 0h1m1 0h4m3 0h1m1 0h1m2 0h3m1 0h2m1 0h1m-20 1h1m1 0h1m4 0h2m4 0h2m2 0h3m-25 1h3m3 0h2m1 0h6m1 0h1m1 0h1m4 0h2m-24 1h2m2 0h1m1 0h3m1 0h3m1 0h2m2 0h3m1 0h1m-24 1h1m1 0h1m2 0h2m1 0h1m3 0h1m1 0h1m3 0h2m1 0h1m1 0h2m-23 1h2m1 0h1m2 0h2m2 0h3m1 0h1m1 0h1m2 0h1m1 0h2m-25 1h1m1 0h5m1 0h1m2 0h1m1 0h2m1 0h1m1 0h2m4 0h1m-24 1h2m2 0h1m1 0h1m2 0h1m1 0h6m3 0h1m1 0h1m-24 1h4m1 0h3m1 0h1m2 0h3m1 0h5m1 0h3m-17 1h1m1 0h3m1 0h1m1 0h1m3 0h5m-25 1h7m1 0h1m2 0h2m1 0h3m1 0h1m1 0h2m1 0h2m-25 1h1m5 0h1m1 0h1m1 0h2m1 0h1m1 0h2m3 0h3m-23 1h1m1 0h3m1 0h1m2 0h2m1 0h3m1 0h6m1 0h2m-25 1h1m1 0h3m1 0h1m1 0h1m2 0h1m1 0h2m2 0h1m2 0h3m-23 1h1m1 0h3m1 0h1m2 0h2m1 0h2m1 0h1m1 0h1m1 0h3m2 0h1m-25 1h1m5 0h1m1 0h1m1 0h1m5 0h2m1 0h3m-22 1h7m4 0h1m1 0h2m1 0h1m3 0h2m1 0h2"/></svg>
+      </div>
+    </div>
+    <div class="popup__actions">
+      <a class="btn btn--yes" href="tel:+905304654521">Ara 📞</a>
+    </div>
+    <button class="btn btn--ghost" id="popupClose2" type="button">Kapat ✕</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var scroller = $('scroller'), intro = $('intro'), donkey = $('donkey'), donkeyVisual = $('donkeyVisual'),
+      home = $('faceHome'), fly = $('flyFace'), landed = $('faceLanded'), caption = $('caption'), hint = $('hint');
+
+  var TILT = 0;            // the plain donkey image is not tilted
+  var SCROLL_MS = 1600;    // slower slide and childhood-to-older-photo transition
+  var FLY_MS = 850;        // face flies onto the donkey
+  var AUTO_START = 10000;  // play anyway if she never scrolls
+
+  var T = null, started = false, done = false, tFly = 0;
+  var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
+  var seg = function (v, a, b) { return clamp((v - a) / (b - a), 0, 1); };
+  var easeInOut = function (t) { return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
+
+  // Layout rectangle of el relative to ancestor; ignores transforms.
+  function rectIn(el, ancestor) {
+    var x = 0, y = 0, n = el;
+    while (n && n !== ancestor) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+    return { x: x, y: y, w: el.offsetWidth, h: el.offsetHeight };
+  }
+
+  // Start = the resting face on screen 1. End = the landed face on screen 2 (its real spot after the
+  // donkey image's tilt). Both in viewport coordinates, because each screen fills the viewport when snapped.
+  function measure() {
+    var a = rectIn(home, intro), b = rectIn(landed, donkey), c = rectIn(donkeyVisual, donkey);
+    var rad = TILT * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+    var px = c.x + c.w / 2, py = c.y + c.h / 2;                 // the image turns around its centre
+    var lx = b.x + b.w / 2 - px, ly = b.y + b.h / 2 - py;
+    var w0 = fly.offsetWidth;
+    T = {
+      x0: a.x + a.w / 2, y0: a.y + a.h / 2,
+      x1: px + lx * cos - ly * sin, y1: py + lx * sin + ly * cos,
+      w0: w0, s: b.w / w0,
+      target: donkey.offsetTop
+    };
+    landed.style.borderWidth = (6 * T.s).toFixed(2) + 'px';    // same ring thickness as the shrunk flying face
+    if (!done) place(tFly);
+  }
+
+  function place(t) {
+    var e = easeInOut(t), hop = -Math.sin(t * Math.PI) * 36;
+    var cx = T.x0 + (T.x1 - T.x0) * e, cy = T.y0 + (T.y1 - T.y0) * e + hop;
+    var s = 1 + (T.s - 1) * e;
+    fly.style.transform = 'translate3d(' + (cx - T.w0 / 2).toFixed(2) + 'px,' + (cy - T.w0 / 2).toFixed(2) + 'px,0)' +
+                          ' rotate(' + (TILT * e).toFixed(2) + 'deg) scale(' + s.toFixed(4) + ')';
+    if (!done) caption.style.opacity = String(seg(t, .75, 1));
+  }
+
+  function finish() {
+    done = true;
+    document.body.classList.add('is-done');      // swap the flying face for the one glued to the donkey
+    caption.style.opacity = '';
+    scroller.scrollTop = T.target;
+    scroller.classList.remove('is-locked');      // from now on she scrolls freely, up or down
+  }
+
+  function start() {
+    if (started) return;
+    started = true;
+    measure();
+    var t0 = 0, from = scroller.scrollTop;
+    function frame(now) {
+      if (!t0) t0 = now;
+      var ms = now - t0;
+      if (ms < SCROLL_MS) {                       // 1) slide to screen 2, face stays put on the viewport
+        var scrollProgress = ms / SCROLL_MS;
+        scroller.scrollTop = from + (T.target - from) * easeInOut(scrollProgress);
+        fly.style.setProperty('--older-opacity', String(seg(scrollProgress, .05, .95)));
+        requestAnimationFrame(frame);
+        return;
+      }
+      scroller.scrollTop = T.target;
+      fly.style.setProperty('--older-opacity', '1');
+      tFly = clamp((ms - SCROLL_MS) / FLY_MS, 0, 1);   // 2) fly onto the donkey
+      place(tFly);
+      if (tFly < 1) requestAnimationFrame(frame); else finish();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // A scroll-down attempt on screen 1 starts it: wheel, swipe up, keys, or a tap on the hint
+  scroller.addEventListener('wheel', function (e) { if (e.deltaY > 0) start(); }, { passive: true });
+  var touchY = null;
+  intro.addEventListener('touchstart', function (e) { touchY = e.touches[0].clientY; }, { passive: true });
+  intro.addEventListener('touchmove', function (e) {
+    if (touchY != null && touchY - e.touches[0].clientY > 12) start();
+  }, { passive: true });
+  hint.addEventListener('click', start);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ' || e.key === 'Enter') start();
+  });
+  setTimeout(start, AUTO_START);
+
+  var raf = 0;
+  function scheduleMeasure() { cancelAnimationFrame(raf); raf = requestAnimationFrame(measure); }
+  window.addEventListener('resize', scheduleMeasure);
+  window.addEventListener('orientationchange', scheduleMeasure);
+  window.addEventListener('load', scheduleMeasure);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', scheduleMeasure);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleMeasure);
+  if (window.ResizeObserver) new ResizeObserver(scheduleMeasure).observe(scroller);
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  scroller.scrollTop = 0;
+  measure();
+
+  // ---------- the Hayır button that runs away ----------
+  var call = $('call'), yes = $('yes'), no = $('no'), lastDodge = 0;
+  var cryMarks = [];
+  function relPoint(cx, cy) { var r = call.getBoundingClientRect(); return [cx - r.left, cy - r.top]; }
+  function leaveCry(x, y) {
+    var mark = document.createElement('span');
+    mark.className = 'cry-mark';
+    mark.textContent = '😭';
+    mark.style.left = x.toFixed(1) + 'px';
+    mark.style.top = y.toFixed(1) + 'px';
+    call.appendChild(mark);
+    cryMarks.push(mark);
+    if (cryMarks.length > 5) cryMarks.shift().remove();
+  }
+  function dodge(px, py) {
+    var now = Date.now();
+    if (now - lastDodge < 60) return;
+    lastDodge = now;
+    var W = call.clientWidth, H = call.clientHeight, w = no.offsetWidth, h = no.offsetHeight;
+    var padX = 16, padT = 24, padB = 56;
+    var cur = rectIn(no, call);
+    var protectedElements = [call.querySelector('.big'), call.querySelector('.ask__image'), yes];
+    var protectedBoxes = protectedElements.map(function (el) { return rectIn(el, call); });
+    if (px == null) { px = cur.x + w / 2; py = cur.y + h / 2; }
+    var best = null, bestD = -1;
+    for (var i = 0; i < 40; i++) {
+      var x = padX + Math.random() * Math.max(1, W - w - 2 * padX);
+      var yy = padT + Math.random() * Math.max(1, H - h - padT - padB);
+      // Protect only the visible question, image and Evet button, leaving the empty page space usable.
+      var blocked = protectedBoxes.some(function (box) {
+        return !(x + w + 12 < box.x || x > box.x + box.w + 12 ||
+                 yy + h + 12 < box.y || yy > box.y + box.h + 12);
+      });
+      if (blocked) continue;
+      var dPtr = Math.hypot(x + w / 2 - px, yy + h / 2 - py), dCur = Math.hypot(x - cur.x, yy - cur.y);
+      if (dPtr > 140 && dCur > 80) { best = { x: x, y: yy }; break; }
+      if (dPtr > bestD) { bestD = dPtr; best = { x: x, y: yy }; }
+    }
+    if (!best) return;
+    leaveCry(cur.x + w / 2, cur.y + h / 2);
+    no.classList.add('is-loose');
+    no.style.left = best.x.toFixed(1) + 'px';
+    no.style.top = best.y.toFixed(1) + 'px';
+  }
+  call.addEventListener('pointermove', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    var r = no.getBoundingClientRect();
+    var dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
+    var dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
+    if (Math.hypot(dx, dy) < 70) dodge.apply(null, relPoint(e.clientX, e.clientY));
+  });
+  no.addEventListener('touchstart', function (e) {
+    e.preventDefault();
+    var t = e.touches[0];
+    dodge.apply(null, relPoint(t.clientX, t.clientY));
+  }, { passive: false });
+  no.addEventListener('pointerdown', function (e) { e.preventDefault(); dodge.apply(null, relPoint(e.clientX, e.clientY)); });
+  no.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') dodge.apply(null, relPoint(e.clientX, e.clientY)); });
+  no.addEventListener('click', function (e) { e.preventDefault(); dodge.apply(null, relPoint(e.clientX, e.clientY)); });
+  no.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  no.addEventListener('focus', function () { no.blur(); });
+
+  // ---------- Evet: open the dialer (phones) / popup with QR (computers) ----------
+  var popup = $('callPopup'), qrBox = $('qrBox');
+  function isDesktop() {
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+           !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+  function openPopup() {
+    qrBox.hidden = !isDesktop();
+    popup.hidden = false;
+    requestAnimationFrame(function () { popup.classList.add('is-open'); });
+  }
+  function closePopup() { popup.classList.remove('is-open'); popup.hidden = true; }
+  yes.addEventListener('click', function (e) {
+    if (isDesktop()) { e.preventDefault(); openPopup(); }
+    else { setTimeout(openPopup, 600); } // let the tel: link open the dialer first
+  });
+  $('popupClose').addEventListener('click', closePopup);
+  $('popupClose2').addEventListener('click', closePopup);
+  popup.addEventListener('click', function (e) { if (e.target === popup) closePopup(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !popup.hidden) closePopup(); });
+})();
+</script>
+</body>
+</html>
